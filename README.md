@@ -8,6 +8,9 @@ REST API for the Lost & Found mobile app, plus the admin website.
 - Node.js 20+
 - MySQL 8+
 
+## Deploy
+Free hosting on Render (+ Aiven MySQL + Cloudinary photos): see **[DEPLOY.md](DEPLOY.md)**.
+
 ## Setup
 ```bash
 npm install
