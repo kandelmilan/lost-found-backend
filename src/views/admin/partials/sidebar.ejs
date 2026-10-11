@@ -2,7 +2,9 @@
   const menu = [
     { key: 'dashboard', label: 'Dashboard', icon: 'speedometer2', href: '/admin' },
     { key: 'inbox', label: 'Inbox', icon: 'inbox', href: '/admin/inbox', badge: typeof inboxCount !== 'undefined' ? inboxCount : 0 },
-    { key: 'items', label: 'Items', icon: 'box-seam', href: '/admin/items' },
+    { key: 'lost', label: 'Lost items', icon: 'question-circle', href: '/admin/items?type=lost' },
+    { key: 'found', label: 'Found items', icon: 'bag-check', href: '/admin/items?type=found' },
+    { key: 'items', label: 'All items', icon: 'box-seam', href: '/admin/items' },
     { key: 'claims', label: 'Claims', icon: 'patch-check', href: '/admin/claims' },
     { key: 'users', label: 'Users', icon: 'people', href: '/admin/users' },
     { key: 'categories', label: 'Categories', icon: 'tags', href: '/admin/categories' },

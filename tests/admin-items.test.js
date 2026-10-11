@@ -1,9 +1,10 @@
 const request = require('supertest');
-const { sequelize, User, Item, Category, AdminLog } = require('../src/models');
+const { sequelize, User, Item, Category, AdminLog, Claim, Notification } = require('../src/models');
 const { app, createUser, loginToken, ensureCategory, adminAgent, bearer, jpegWithGps } = require('./helpers');
 
 const ADMIN_EMAIL = 'items-admin@lostfound.local';
 const OWNER = 'owner@admin-items-test.example.com';
+const FINDER = 'finder@admin-items-test.example.com';
 
 let agent;
 let csrf;
@@ -25,7 +26,7 @@ async function createItem(title) {
 }
 
 beforeAll(async () => {
-  await User.destroy({ where: { email: OWNER } });
+  await User.destroy({ where: { email: [OWNER, FINDER] } });
   await Category.destroy({ where: { slug: ['test-umbrella', 'test-renamed'] } });
   category = await ensureCategory('keys', 'Keys');
   await createUser(OWNER);
@@ -34,7 +35,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await User.destroy({ where: { email: [OWNER, ADMIN_EMAIL] } });
+  await User.destroy({ where: { email: [OWNER, FINDER, ADMIN_EMAIL] } });
   await Category.destroy({ where: { slug: ['test-umbrella'] } });
   await sequelize.close();
 });
@@ -84,6 +85,83 @@ describe('Admin items', () => {
     const item = await createItem('CSRF item');
     const res = await agent.post(`/admin/items/${item.id}/hide`).type('form').send({});
     expect(res.status).toBe(403);
+  });
+});
+
+describe('Admin item status', () => {
+  let finderToken;
+  beforeAll(async () => {
+    await createUser(FINDER);
+    finderToken = await loginToken(FINDER);
+  });
+
+  const setStatus = (id, action, extra = {}) => agent.post(`/admin/items/${id}/status`).type('form').send({ _csrf: csrf, action, ...extra });
+  const statusOf = async (id) => (await Item.findByPk(id)).status;
+  const claimOn = (id) =>
+    request(app).post(`/api/v1/items/${id}/claims`).set(bearer(finderToken)).send({ message: 'Found it at Ratnapark bus stop yesterday' });
+
+  it('closes an open item, declines waiting claims, tells the owner and logs it', async () => {
+    const item = await createItem('Status close item');
+    const claim = (await claimOn(item.id)).body.data;
+    expect(claim.status).toBe('pending');
+
+    const res = await setStatus(item.id, 'close', { reason: 'Owner asked us' });
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe(`/admin/items/${item.id}`);
+    expect(await statusOf(item.id)).toBe('closed');
+    expect((await Claim.findByPk(claim.id)).status).toBe('rejected');
+
+    const owner = await User.findOne({ where: { email: OWNER } });
+    const note = await Notification.findOne({ where: { user_id: owner.id, type: 'item.closed' }, order: [['id', 'DESC']] });
+    expect(note.body).toContain('Owner asked us');
+    expect((await AdminLog.findAll({ where: { target_type: 'item', target_id: item.id } })).map((l) => l.action)).toContain('item.close');
+  });
+
+  it('reopens a closed item', async () => {
+    const item = await createItem('Status reopen item');
+    await setStatus(item.id, 'close');
+    await setStatus(item.id, 'reopen');
+    expect(await statusOf(item.id)).toBe('open');
+  });
+
+  it('marks an open item as returned, and a returned item cannot be reopened', async () => {
+    const item = await createItem('Status returned item');
+    await setStatus(item.id, 'returned');
+    expect(await statusOf(item.id)).toBe('returned');
+
+    const res = await setStatus(item.id, 'reopen');
+    expect(res.status).toBe(302);
+    expect(await statusOf(item.id)).toBe('returned');
+    const page = await agent.get(res.headers.location);
+    expect(page.text).toContain('can&#39;t be reopened');
+  });
+
+  it('leaves items with an accepted claim alone', async () => {
+    const item = await createItem('Status claimed item');
+    const claim = (await claimOn(item.id)).body.data;
+    await request(app).post(`/api/v1/claims/${claim.id}/accept`).set(bearer(ownerToken));
+    expect(await statusOf(item.id)).toBe('claimed');
+
+    await setStatus(item.id, 'returned');
+    expect(await statusOf(item.id)).toBe('claimed');
+    expect((await Claim.findByPk(claim.id)).status).toBe('accepted');
+  });
+
+  it('rejects unknown actions and needs CSRF', async () => {
+    const item = await createItem('Status guard item');
+    await setStatus(item.id, 'delete-everything');
+    expect(await statusOf(item.id)).toBe('open');
+    const res = await agent.post(`/admin/items/${item.id}/status`).type('form').send({ action: 'close' });
+    expect(res.status).toBe(403);
+    expect(await statusOf(item.id)).toBe('open');
+  });
+
+  it('has separate Lost and Found sections', async () => {
+    const lost = await agent.get('/admin/items?type=lost');
+    expect(lost.text).toContain('<h1 class="page-heading">Lost items</h1>');
+    expect(lost.text).toMatch(/nav-link active[^>]*href="\/admin\/items\?type=lost"/);
+    const found = await agent.get('/admin/items?type=found');
+    expect(found.text).toContain('<h1 class="page-heading">Found items</h1>');
   });
 });
 

@@ -64,6 +64,7 @@ router.get('/items/:id/edit', itemsController.editForm);
 router.post('/items/:id/edit', itemsController.update);
 router.post('/items/:id/hide', itemsController.hide);
 router.post('/items/:id/unhide', itemsController.unhide);
+router.post('/items/:id/status', itemsController.setStatus);
 router.post('/items/:id/delete', itemsController.destroy);
 
 router.get('/inbox', inboxController.index);

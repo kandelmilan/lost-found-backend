@@ -1,10 +1,17 @@
 <%
-  const actionLabels = { 'item.update': 'Edited', 'item.create': 'Posted by admin', 'item.hide': 'Hidden', 'item.unhide': 'Made visible', 'item.delete': 'Deleted' };
+  const actionLabels = { 'item.update': 'Edited', 'item.create': 'Posted by admin', 'item.hide': 'Hidden', 'item.unhide': 'Made visible', 'item.delete': 'Deleted', 'item.close': 'Closed', 'item.reopen': 'Reopened', 'item.returned': 'Marked as returned' };
+  const statusActions = {
+    open: [
+      { action: 'returned', label: 'Mark as returned', icon: 'check2-circle', btn: 'btn-success', hint: 'The owner has it back. Waiting claims are declined.' },
+      { action: 'close', label: 'Close', icon: 'x-circle', btn: 'btn-outline-secondary', hint: 'Stop showing it as open (e.g. no longer needed). Waiting claims are declined.' },
+    ],
+    closed: [{ action: 'reopen', label: 'Reopen', icon: 'arrow-counterclockwise', btn: 'btn-outline-primary', hint: 'Show it as open again so people can respond.' }],
+  }[item.status] || [];
   const lat = Number(item.latitude);
   const lng = Number(item.longitude);
   const mapUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
 %>
-<a href="/admin/items" class="back-link"><i class="bi bi-arrow-left"></i> Items</a>
+<a href="/admin/items?type=<%= item.type %>" class="back-link"><i class="bi bi-arrow-left"></i> <%= item.type === 'lost' ? 'Lost items' : 'Found items' %></a>
 <div class="page-header">
   <div class="min-w-0">
     <h1 class="page-heading text-break"><%= item.title %></h1>
@@ -28,6 +35,49 @@
     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal"><i class="bi bi-trash"></i> Delete</button>
   </div>
 </div>
+
+<div class="card status-card mb-3 no-print">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <div class="flex-grow-1 min-w-0">
+      <div class="small text-muted">Status</div>
+      <div class="fw-semibold">
+        <span class="pill pill-<%= item.status %>"><%= item.status %></span>
+        <% if (item.status === 'claimed') { %>
+          <span class="small text-muted ms-2">Has an accepted claim — manage it from the claim listed on this page.</span>
+        <% } else if (item.status === 'returned') { %>
+          <span class="small text-muted ms-2">Back with its owner.</span>
+        <% } %>
+      </div>
+    </div>
+    <% statusActions.forEach((a) => { %>
+      <button type="button" class="btn <%= a.btn %>" data-bs-toggle="modal" data-bs-target="#status-<%= a.action %>"><i class="bi bi-<%= a.icon %>"></i> <%= a.label %></button>
+    <% }) %>
+  </div>
+</div>
+
+<% statusActions.forEach((a) => { %>
+<div class="modal fade" id="status-<%= a.action %>" tabindex="-1" aria-labelledby="status-<%= a.action %>-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="/admin/items/<%= item.id %>/status" class="modal-content">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="action" value="<%= a.action %>">
+      <div class="modal-header">
+        <h2 class="modal-title fs-5" id="status-<%= a.action %>-title"><%= a.label %>?</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-3"><%= a.hint %> The owner gets a notification.</p>
+        <label for="status-<%= a.action %>-reason" class="form-label">Note <span class="text-muted">(optional, shown to the owner)</span></label>
+        <textarea id="status-<%= a.action %>-reason" name="reason" class="form-control" rows="2" maxlength="500"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn <%= a.btn.replace('btn-outline-', 'btn-') %>"><%= a.label %></button>
+      </div>
+    </form>
+  </div>
+</div>
+<% }) %>
 
 <div class="row g-3">
   <div class="col-12 col-lg-7">

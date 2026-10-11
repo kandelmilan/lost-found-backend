@@ -547,6 +547,54 @@ async function adminSetHidden(req, id, hidden, reason) {
   return item;
 }
 
+/**
+ * Admin changes an item's status:
+ *  - close:    open → closed   (pending claims are declined)
+ *  - reopen:   closed → open
+ *  - returned: open → returned (pending claims are declined)
+ * An item with an accepted claim ("claimed") is handled from its claim page instead,
+ * so the two people in the middle of a handover aren't overruled silently.
+ */
+const STATUS_ACTIONS = {
+  close: { from: ['open'], to: 'closed', log: 'item.close', title: 'Your post was closed', verb: 'closed' },
+  reopen: { from: ['closed'], to: 'open', log: 'item.reopen', title: 'Your post is open again', verb: 'reopened' },
+  returned: { from: ['open'], to: 'returned', log: 'item.returned', title: 'Your post was marked as returned', verb: 'marked as returned' },
+};
+
+async function adminSetStatus(req, id, action, reason) {
+  const rule = STATUS_ACTIONS[action];
+  if (!rule) throw ApiError.badRequest('Unknown action');
+  const item = await Item.findByPk(id);
+  if (!item) throw ApiError.notFound('Item not found');
+  if (item.status === 'claimed') {
+    throw ApiError.badRequest('This item has an accepted claim. Finish or cancel the claim first (Claims page).');
+  }
+  if (!rule.from.includes(item.status)) {
+    throw ApiError.badRequest(`A ${item.status} item can't be ${rule.verb}.`);
+  }
+
+  await sequelize.transaction(async (transaction) => {
+    await item.update({ status: rule.to }, { transaction });
+    if (rule.to !== 'open') {
+      await claimService.rejectPendingForItem(item.id, `The Lost & Found team ${rule.verb} this item`, transaction);
+    }
+  });
+  await AdminLog.record(req, rule.log, {
+    targetType: 'item',
+    targetId: item.id,
+    details: reason ? { reason } : null,
+  });
+  if (item.user_id !== req.session?.adminId) {
+    await notify(item.user_id, {
+      type: `item.${action === 'returned' ? 'returned' : action === 'close' ? 'closed' : 'reopened'}`,
+      title: rule.title,
+      body: `“${item.title}” was ${rule.verb} by our team.${reason ? ` Note: ${reason}` : ''}`.slice(0, 500),
+      data: { item_id: item.id },
+    });
+  }
+  return item;
+}
+
 async function adminDelete(req, id, reason) {
   const item = await Item.findByPk(id, { include: [imagesInclude] });
   if (!item) throw ApiError.notFound('Item not found');
@@ -573,6 +621,7 @@ async function stats() {
 }
 
 module.exports = {
+  adminSetStatus,
   MAX_IMAGES,
   serialize,
   createItem,

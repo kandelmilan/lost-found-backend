@@ -27,9 +27,10 @@ async function index(req, res) {
   ]);
 
   const query = linkQuery({ q: list.q, limit: list.limit, ...filters });
+  const section = filters.type === 'lost' ? 'lost' : filters.type === 'found' ? 'found' : 'items';
   res.render('admin/pages/items/index', {
-    title: 'Items',
-    active: 'items',
+    title: { lost: 'Lost items', found: 'Found items', items: 'Items' }[section],
+    active: section,
     items,
     categories,
     list,
@@ -87,7 +88,7 @@ async function renderForm(res, { values = EMPTY_FORM, errors = {}, status = 200,
   res.status(status).render('admin/pages/items/new', {
     title: editing ? `Edit ${editing.title}` : 'Post Item',
     crumb: editing ? `Items / #${editing.id} / Edit` : 'Items / Post Item',
-    active: 'items',
+    active: editing ? editing.type : 'items',
     useMap: true,
     // Keep the item's current category in the list even if it was deactivated since.
     categories: categories.filter((c) => c.is_active || (editing && c.id === editing.category_id)),
@@ -185,8 +186,8 @@ async function show(req, res) {
   const { item, history, claims } = await itemService.adminGet(Number(req.params.id));
   res.render('admin/pages/items/show', {
     title: item.title,
-    crumb: `Items / #${item.id}`,
-    active: 'items',
+    crumb: `${item.type === 'lost' ? 'Lost items' : 'Found items'} / #${item.id}`,
+    active: item.type,
     item,
     history,
     claims,
@@ -207,10 +208,25 @@ async function unhide(req, res) {
   res.redirect(`/admin/items/${item.id}`);
 }
 
+const STATUS_MESSAGES = { close: 'is closed', reopen: 'is open again', returned: 'is marked as returned' };
+
+async function setStatus(req, res) {
+  const id = Number(req.params.id);
+  const action = String(req.body.action || '');
+  try {
+    const item = await itemService.adminSetStatus(req, id, action, readReason(req));
+    req.flash('success', `"${item.title}" ${STATUS_MESSAGES[action]}.`);
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.statusCode >= 500 || err.statusCode === 404) throw err;
+    req.flash('danger', err.message);
+  }
+  res.redirect(`/admin/items/${id}`);
+}
+
 async function destroy(req, res) {
   const item = await itemService.adminDelete(req, Number(req.params.id), readReason(req));
   req.flash('success', `Item #${item.id} "${item.title}" was deleted.`);
   res.redirect('/admin/items');
 }
 
-module.exports = { index, exportCsv, newForm, create, editForm, update, show, hide, unhide, destroy };
+module.exports = { index, exportCsv, newForm, create, editForm, update, show, hide, unhide, setStatus, destroy };
