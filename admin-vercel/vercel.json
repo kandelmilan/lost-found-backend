@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [{ "source": "/", "destination": "/admin", "permanent": false }],
+  "rewrites": [
+    { "source": "/admin", "destination": "https://lost-found-api-7dfm.onrender.com/admin" },
+    { "source": "/admin/:path*", "destination": "https://lost-found-api-7dfm.onrender.com/admin/:path*" },
+    { "source": "/static/:path*", "destination": "https://lost-found-api-7dfm.onrender.com/static/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://lost-found-api-7dfm.onrender.com/uploads/:path*" }
+  ],
+  "headers": [
+    {
+      "source": "/admin/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
+    },
+    {
+      "source": "/admin",
+      "headers": [{ "key": "Cache-Control", "value": "private, no-store" }]
+    }
+  ]
+}

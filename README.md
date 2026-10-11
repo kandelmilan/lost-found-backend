@@ -11,6 +11,8 @@ REST API for the Lost & Found mobile app, plus the admin website.
 ## Deploy
 Free hosting on Render (+ Aiven MySQL + Cloudinary photos): see **[DEPLOY.md](DEPLOY.md)**.
 
+Admin website on Vercel: **https://lost-found-admin-six.vercel.app** (proxies to Render — see [admin-vercel/](admin-vercel/README.md)).
+
 ## Setup
 ```bash
 npm install
