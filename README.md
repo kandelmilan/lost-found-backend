@@ -98,3 +98,4 @@ converted to WebP and stripped of metadata (phone photos contain GPS). Storage l
 3. Logic in `src/services/`, handler in `src/controllers/api/`
 4. Route in `src/routes/api/` with a `@swagger` comment, then register it in `src/routes/api/index.js`
 5. Test in `tests/`
+# lost-found-backend
