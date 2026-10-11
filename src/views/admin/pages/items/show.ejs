@@ -1,0 +1,166 @@
+<%
+  const actionLabels = { 'item.update': 'Edited', 'item.create': 'Posted by admin', 'item.hide': 'Hidden', 'item.unhide': 'Made visible', 'item.delete': 'Deleted' };
+  const lat = Number(item.latitude);
+  const lng = Number(item.longitude);
+  const mapUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
+%>
+<a href="/admin/items" class="back-link"><i class="bi bi-arrow-left"></i> Items</a>
+<div class="page-header">
+  <div class="min-w-0">
+    <h1 class="page-heading text-break"><%= item.title %></h1>
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+      <span class="code-cell text-muted">IT-<%= String(item.id).padStart(3, '0') %></span>
+      <span class="pill pill-<%= item.type %>"><%= item.type %></span>
+      <span class="pill pill-<%= item.status %>"><%= item.status %></span>
+      <% if (item.is_hidden) { %><span class="pill pill-hidden"><i class="bi bi-eye-slash"></i> Hidden from app</span><% } %>
+    </div>
+  </div>
+  <div class="d-flex gap-2 no-print">
+    <a href="/admin/items/<%= item.id %>/edit" class="btn btn-primary"><i class="bi bi-pencil"></i> Edit</a>
+    <% if (item.is_hidden) { %>
+      <form method="post" action="/admin/items/<%= item.id %>/unhide">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn btn-success"><i class="bi bi-eye"></i> Make visible</button>
+      </form>
+    <% } else { %>
+      <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#hideModal"><i class="bi bi-eye-slash"></i> Hide</button>
+    <% } %>
+    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal"><i class="bi bi-trash"></i> Delete</button>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-card-text"></i> Description</h2></div>
+      <div class="card-body px-4">
+        <p class="mb-0 text-break white-space-pre"><%= item.description || 'No description.' %></p>
+      </div>
+      <% if (item.images.length) { %>
+        <div class="card-body px-4 border-top">
+          <div class="gallery">
+            <% item.images.forEach((img) => { %>
+              <a href="<%= img.url %>" target="_blank" rel="noopener"><img src="<%= img.url %>" alt="Photo of <%= item.title %>" loading="lazy"></a>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-patch-check"></i> Claims (<%= claims.length %>)</h2></div>
+      <ul class="list-group list-group-flush">
+        <% if (!claims.length) { %>
+          <li class="list-group-item text-muted small py-4 text-center">Nobody has claimed this item yet.</li>
+        <% } %>
+        <% claims.forEach((c) => { %>
+          <li class="list-group-item px-4 d-flex align-items-center gap-3">
+            <div class="flex-grow-1 min-w-0">
+              <a href="/admin/claims/<%= c.id %>" class="fw-semibold">CL-<%= String(c.id).padStart(3, '0') %></a>
+              <span class="text-muted">by <%= c.claimer ? c.claimer.name : 'deleted account' %></span>
+              <div class="small text-muted"><%= formatDate(c.createdAt) %>
+                <% if (c.answer_correct === true) { %> · <span class="text-success">answer matches</span><% } %>
+                <% if (c.answer_correct === false) { %> · <span class="text-danger">answer does not match</span><% } %>
+              </div>
+            </div>
+            <span class="pill pill-<%= c.status %>"><%= c.status === 'accepted' ? 'handover' : c.status %></span>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-clock-history"></i> Moderation history</h2></div>
+      <ul class="list-group list-group-flush">
+        <% if (!history.length) { %>
+          <li class="list-group-item text-muted small py-4 text-center">No admin actions on this item yet.</li>
+        <% } %>
+        <% history.forEach((log) => { %>
+          <li class="list-group-item px-4">
+            <div class="d-flex justify-content-between gap-2">
+              <span class="fw-semibold"><%= actionLabels[log.action] || log.action %></span>
+              <span class="small text-muted text-nowrap"><%= formatDate(log.createdAt) %></span>
+            </div>
+            <div class="small text-muted">by <%= log.admin ? log.admin.name : 'Deleted admin' %></div>
+            <% if (log.details && log.details.reason) { %><div class="small mt-1">Reason: <%= log.details.reason %></div><% } %>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-info-circle"></i> Details</h2></div>
+      <div class="card-body px-4">
+        <dl class="row mb-0 detail-list">
+          <dt class="col-5">Category</dt><dd class="col-7"><%= item.category ? item.category.name : '—' %></dd>
+          <dt class="col-5"><%= item.type === 'lost' ? 'Lost on' : 'Found on' %></dt><dd class="col-7"><%= item.event_date %></dd>
+          <dt class="col-5">Area</dt><dd class="col-7"><%= item.area_name %></dd>
+          <dt class="col-5">Exact location</dt>
+          <dd class="col-7"><a href="<%= mapUrl %>" target="_blank" rel="noopener"><%= lat.toFixed(5) %>, <%= lng.toFixed(5) %> <i class="bi bi-box-arrow-up-right"></i></a></dd>
+          <% if (item.type === 'found') { %>
+            <dt class="col-5">Secret question</dt><dd class="col-7"><%= item.secret_question %></dd>
+          <% } %>
+          <dt class="col-5">Posted by</dt>
+          <dd class="col-7">
+            <% if (item.owner) { %>
+              <a href="/admin/users/<%= item.owner.id %>"><%= item.owner.name %></a>
+              <% if (item.owner.is_blocked) { %><span class="pill pill-blocked">Blocked</span><% } %>
+              <div class="small text-muted"><%= item.owner.email || item.owner.phone %></div>
+            <% } else { %>—<% } %>
+          </dd>
+          <dt class="col-5">Posted</dt><dd class="col-7"><%= formatDate(item.createdAt) %></dd>
+          <dt class="col-5">Updated</dt><dd class="col-7"><%= formatDate(item.updatedAt) %></dd>
+          <% if (item.is_hidden && item.hidden_reason) { %>
+            <dt class="col-5">Hidden because</dt><dd class="col-7"><%= item.hidden_reason %></dd>
+          <% } %>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<% if (!item.is_hidden) { %>
+  <div class="modal fade" id="hideModal" tabindex="-1" aria-labelledby="hideModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form method="post" action="/admin/items/<%= item.id %>/hide" class="modal-content">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="modal-header">
+          <h3 class="modal-title h5" id="hideModalLabel">Hide this item?</h3>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted">It disappears from the feed, search and matches. The owner still sees it, with the reason below.</p>
+          <label for="hideReason" class="form-label">Reason <span class="text-muted">(shown to the owner)</span></label>
+          <textarea id="hideReason" name="reason" class="form-control" rows="3" maxlength="500" placeholder="e.g. Photo shows a full citizenship number"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-dark">Hide item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<% } %>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="/admin/items/<%= item.id %>/delete" class="modal-content">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="modal-header">
+        <h3 class="modal-title h5" id="deleteModalLabel">Delete "<%= item.title %>"?</h3>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-danger mb-3">This permanently removes the post and its photos. It cannot be undone. Prefer <strong>Hide</strong> unless the content is illegal or spam.</p>
+        <label for="deleteReason" class="form-label">Reason <span class="text-muted">(internal)</span></label>
+        <textarea id="deleteReason" name="reason" class="form-control" rows="2" maxlength="500"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger">Delete permanently</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,90 @@
+<%
+  const filterFields = [
+    { name: 'type', label: 'Type', options: [['lost', 'Lost'], ['found', 'Found']], current: filters.type },
+    { name: 'status', label: 'Status', options: [['open', 'Open'], ['claimed', 'Claimed'], ['returned', 'Returned'], ['closed', 'Closed']], current: filters.status },
+    { name: 'category', label: 'Category', options: categories.map((c) => [c.id, c.name]), current: filters.category },
+    { name: 'visibility', label: 'Visibility', options: [['visible', 'Visible'], ['hidden', 'Hidden']], current: filters.visibility },
+  ];
+  const th = (label, key, extraClass) => include('../../partials/sort-th', { label, key, list, query, extraClass });
+%>
+<div class="page-header">
+  <h1 class="page-heading">Items</h1>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title-row">
+      <h2 class="card-title"><i class="bi bi-box-seam"></i> Lost &amp; found items</h2>
+      <a href="/admin/items/new" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Post Item</a>
+    </div>
+  </div>
+
+  <%- include('../../partials/table-toolbar', {
+    action: '/admin/items',
+    placeholder: 'Search title, area or ID...',
+    list,
+    exportUrl,
+    filterFields,
+    activeFilters: Object.keys(filters).length,
+  }) %>
+
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <thead>
+        <tr>
+          <%- th('Code', 'id', 'd-none d-sm-table-cell') %>
+          <%- th('Item', 'title') %>
+          <%- th('Type', 'type') %>
+          <%- th('Category', 'category', 'd-none d-md-table-cell') %>
+          <th class="d-none d-xl-table-cell">Posted by</th>
+          <%- th('Status', 'status') %>
+          <%- th('Posted', 'posted', 'd-none d-lg-table-cell') %>
+          <th class="col-actions no-print">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!items.length) { %>
+          <tr><td colspan="8" class="text-center text-muted py-5">No items found.</td></tr>
+        <% } %>
+        <% items.forEach((item) => { %>
+          <tr>
+            <td class="code-cell d-none d-sm-table-cell">IT-<%= String(item.id).padStart(3, '0') %></td>
+            <td>
+              <div class="item-cell">
+                <% if (item.images.length) { %>
+                  <img src="<%= item.images[0].url %>" alt="" class="thumb" loading="lazy">
+                <% } else { %>
+                  <div class="thumb thumb-empty"><i class="bi bi-image"></i></div>
+                <% } %>
+                <div class="min-w-0">
+                  <div class="title text-truncate"><%= item.title %></div>
+                  <div class="small text-muted text-truncate"><%= item.area_name %></div>
+                </div>
+              </div>
+            </td>
+            <td><span class="pill pill-<%= item.type %>"><%= item.type %></span></td>
+            <td class="d-none d-md-table-cell"><%= item.category ? item.category.name : '—' %></td>
+            <td class="d-none d-xl-table-cell">
+              <% if (item.owner) { %><a href="/admin/users/<%= item.owner.id %>" class="text-decoration-none"><%= item.owner.name %></a><% } else { %>—<% } %>
+            </td>
+            <td>
+              <span class="pill pill-<%= item.status %>"><%= item.status %></span>
+              <% if (item.is_hidden) { %><span class="pill pill-hidden"><i class="bi bi-eye-slash"></i> Hidden</span><% } %>
+            </td>
+            <td class="d-none d-lg-table-cell text-nowrap"><%= formatDate(item.createdAt) %></td>
+            <td class="col-actions no-print">
+              <div class="d-inline-flex gap-2">
+                <a href="/admin/items/<%= item.id %>" class="btn-icon" title="View item" aria-label="View <%= item.title %>"><i class="bi bi-eye"></i></a>
+                <a href="/admin/items/<%= item.id %>/edit" class="btn-icon" title="Edit item" aria-label="Edit <%= item.title %>"><i class="bi bi-pencil"></i></a>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer">
+    <%- include('../../partials/pagination', { pagination, baseQuery: pageQuery, noun: 'item' }) %>
+  </div>
+</div>

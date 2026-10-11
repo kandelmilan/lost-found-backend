@@ -1,0 +1,52 @@
+<div class="auth-split">
+  <section class="auth-hero" aria-label="About">
+    <div class="auth-hero-brand">
+      <span class="logo"><i class="bi bi-search-heart"></i></span>
+      <div>
+        <div class="name">Lost &amp; Found</div>
+        <div class="sub">Admin Platform</div>
+      </div>
+    </div>
+
+    <div class="auth-hero-body">
+      <h1>Reuniting people with what they lost</h1>
+      <p>Moderate posts, resolve claims and keep handovers safe — everything the Lost &amp; Found community needs, in one place.</p>
+      <ul>
+        <li><i class="bi bi-check-circle-fill"></i> Review claims, reports and users</li>
+        <li><i class="bi bi-check-circle-fill"></i> Live inbox for items posted by the team</li>
+      </ul>
+    </div>
+
+    <div class="auth-hero-foot">© <%= new Date().getFullYear() %> Lost &amp; Found</div>
+  </section>
+
+  <section class="auth-panel">
+    <div class="auth-form">
+      <h2>Sign in</h2>
+      <p class="lead-text">Enter your credentials to access the admin platform.</p>
+
+      <% if (error) { %>
+        <div class="alert alert-danger py-2 small" role="alert"><%= error %></div>
+      <% } %>
+
+      <form method="post" action="/admin/login" novalidate>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="mb-3">
+          <label for="email" class="form-label">Email address</label>
+          <div class="input-icon">
+            <input type="email" class="form-control" id="email" name="email" value="<%= email %>" placeholder="you@company.com" required autofocus autocomplete="username">
+            <i class="bi bi-envelope"></i>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label for="password" class="form-label">Password</label>
+          <div class="input-icon">
+            <input type="password" class="form-control" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+            <i class="bi bi-lock-fill"></i>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Sign in</button>
+      </form>
+    </div>
+  </section>
+</div>

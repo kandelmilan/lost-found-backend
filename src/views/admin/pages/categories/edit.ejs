@@ -1,0 +1,34 @@
+<a href="/admin/categories" class="back-link"><i class="bi bi-arrow-left"></i> Categories</a>
+<div class="page-header">
+  <h1 class="page-heading">Edit category</h1>
+</div>
+
+<div class="card form-card">
+  <div class="card-header"><h2 class="card-title"><i class="bi bi-tag"></i> <%= category.name %></h2></div>
+  <div class="card-body p-4">
+    <form method="post" action="/admin/categories/<%= category.id %>">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input type="text" id="name" name="name" class="form-control" required minlength="2" maxlength="60" value="<%= category.name %>">
+        <div class="form-text">Slug <code><%= category.slug %></code> stays the same so app filters keep working.</div>
+      </div>
+      <div class="mb-3">
+        <label for="icon" class="form-label">Icon</label>
+        <input type="text" id="icon" name="icon" class="form-control" maxlength="60" pattern="[a-z0-9\-]*" value="<%= category.icon || '' %>">
+      </div>
+      <div class="mb-3">
+        <label for="sort_order" class="form-label">Order</label>
+        <input type="number" id="sort_order" name="sort_order" class="form-control" min="0" max="9999" value="<%= category.sort_order %>">
+      </div>
+      <div class="form-check form-switch mb-4">
+        <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" <%= category.is_active ? 'checked' : '' %>>
+        <label class="form-check-label" for="is_active">Active (shown in the app)</label>
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Save changes</button>
+        <a href="/admin/categories" class="btn btn-light">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>

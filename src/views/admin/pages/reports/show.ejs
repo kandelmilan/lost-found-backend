@@ -1,0 +1,118 @@
+<%
+  const t = report.target;
+  const isItem = report.target_type === 'item';
+  const open = report.status === 'open';
+  const canHide = open && isItem && t && !t.is_hidden;
+  const blockTarget = isItem ? t && t.owner : t;
+  // Admin accounts can't be blocked from here (e.g. an item an admin posted).
+  const canBlock = open && blockTarget && !blockTarget.is_blocked && blockTarget.role !== 'admin';
+%>
+<a href="/admin/reports" class="back-link"><i class="bi bi-arrow-left"></i> Reports</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Report RP-<%= String(report.id).padStart(3, '0') %></h1>
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+      <span class="pill as-written pill-report"><%= isItem ? 'About a post' : 'About a person' %></span>
+      <span class="pill pill-<%= open ? 'pending' : report.status %>"><%= report.status %></span>
+      <% if (related) { %><span class="small text-muted"><i class="bi bi-flag"></i> <%= related %> other report<%= related === 1 ? '' : 's' %> about the same <%= report.target_type %></span><% } %>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-chat-square-text"></i> What was reported</h2></div>
+      <div class="card-body px-4">
+        <dl class="row mb-0 detail-list">
+          <dt class="col-4">Reason</dt><dd class="col-8 fw-semibold"><%= reasonLabels[report.reason] %></dd>
+          <dt class="col-4">Details</dt><dd class="col-8 white-space-pre text-break"><%= report.details || '—' %></dd>
+          <dt class="col-4">Reported by</dt>
+          <dd class="col-8">
+            <% if (report.reporter) { %>
+              <a href="/admin/users/<%= report.reporter.id %>"><%= report.reporter.name %></a>
+              <div class="small text-muted"><%= report.reporter.email || report.reporter.phone %></div>
+            <% } else { %>Deleted account<% } %>
+          </dd>
+          <dt class="col-4">Reported</dt><dd class="col-8"><%= formatDate(report.createdAt) %></dd>
+          <% if (!open) { %>
+            <dt class="col-4"><%= report.status === 'resolved' ? 'Resolved' : 'Dismissed' %></dt>
+            <dd class="col-8"><%= formatDate(report.resolved_at) %> by <%= report.resolver ? report.resolver.name : 'an admin' %></dd>
+            <dt class="col-4">Admin note</dt><dd class="col-8"><%= report.admin_note || '—' %></dd>
+          <% } %>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-<%= isItem ? 'box-seam' : 'person' %>"></i> Reported <%= isItem ? 'post' : 'person' %></h2></div>
+      <div class="card-body px-4">
+        <% if (!t) { %>
+          <p class="text-muted mb-0">This <%= report.target_type %> (#<%= report.target_id %>) no longer exists.</p>
+        <% } else if (isItem) { %>
+          <a href="/admin/items/<%= t.id %>" class="fw-semibold"><%= t.title %></a>
+          <div class="d-flex gap-2 mt-1">
+            <span class="pill pill-<%= t.type %>"><%= t.type %></span>
+            <span class="pill pill-<%= t.status %>"><%= t.status %></span>
+            <% if (t.is_hidden) { %><span class="pill pill-hidden">Hidden</span><% } %>
+          </div>
+          <div class="small text-muted mt-2">Posted by
+            <% if (t.owner) { %><a href="/admin/users/<%= t.owner.id %>"><%= t.owner.name %></a><% if (t.owner.is_blocked) { %> <span class="pill pill-blocked">Blocked</span><% } %><% } %>
+          </div>
+        <% } else { %>
+          <a href="/admin/users/<%= t.id %>" class="fw-semibold"><%= t.name %></a>
+          <% if (t.is_blocked) { %><span class="pill pill-blocked">Blocked</span><% } %>
+          <div class="small text-muted"><%= t.email || t.phone %></div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <% if (open) { %>
+      <div class="card">
+        <div class="card-header"><h2 class="card-title"><i class="bi bi-hammer"></i> Decision</h2></div>
+        <div class="card-body px-4">
+          <form method="post" action="/admin/reports/<%= report.id %>/resolve" id="resolve-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label for="note" class="form-label">Note <span class="text-muted small">(internal; also used as the reason when hiding / blocking)</span></label>
+            <textarea id="note" name="note" class="form-control mb-3" rows="3" maxlength="500" placeholder="What did you find?"></textarea>
+
+            <div class="mb-3">
+              <span class="form-label d-block">Action</span>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="action" id="act-none" value="none" checked>
+                <label class="form-check-label" for="act-none">No action needed — just resolve</label>
+              </div>
+              <% if (canHide) { %>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="action" id="act-hide" value="hide_item">
+                  <label class="form-check-label" for="act-hide">Hide the post from the app</label>
+                </div>
+              <% } %>
+              <% if (canBlock) { %>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="action" id="act-block" value="block_user">
+                  <label class="form-check-label" for="act-block">Block <%= blockTarget.name %> <span class="text-muted small">(signs them out, cancels their claims)</span></label>
+                </div>
+              <% } %>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-check2-circle"></i> Resolve</button>
+              <button type="submit" class="btn btn-outline-secondary" formaction="/admin/reports/<%= report.id %>/dismiss"><i class="bi bi-x-circle"></i> Dismiss</button>
+            </div>
+            <div class="form-text mt-2">Dismiss if the report is not valid. Other open reports about the same <%= report.target_type %> are closed too.</div>
+          </form>
+        </div>
+      </div>
+    <% } else { %>
+      <div class="card">
+        <div class="card-body px-4 text-center py-5">
+          <i class="bi bi-<%= report.status === 'resolved' ? 'check2-circle text-success' : 'x-circle text-muted' %> fs-1"></i>
+          <p class="mt-2 mb-0">This report was <strong><%= report.status %></strong>.</p>
+        </div>
+      </div>
+    <% } %>
+  </div>
+</div>

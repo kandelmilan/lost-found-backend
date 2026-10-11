@@ -1,0 +1,80 @@
+<%
+  const filterFields = [
+    { name: 'status', label: 'Status', options: [['pending', 'Pending'], ['accepted', 'Accepted (handover)'], ['completed', 'Completed'], ['rejected', 'Rejected'], ['cancelled', 'Cancelled']], current: filters.status },
+    { name: 'kind', label: 'Kind', options: [['ownership', '"This is mine" (found items)'], ['finder', '"I found this" (lost items)']], current: filters.kind },
+  ];
+  const th = (label, key, extraClass) => include('../../partials/sort-th', { label, key, list, query, extraClass });
+%>
+<div class="page-header">
+  <h1 class="page-heading">Claims</h1>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title-row">
+      <h2 class="card-title"><i class="bi bi-patch-check"></i> Claims &amp; handovers</h2>
+    </div>
+  </div>
+
+  <%- include('../../partials/table-toolbar', {
+    action: '/admin/claims',
+    placeholder: 'Search item title, claimer name or ID...',
+    list,
+    exportUrl,
+    filterFields,
+    activeFilters: Object.keys(filters).length,
+  }) %>
+
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <thead>
+        <tr>
+          <%- th('Code', 'id', 'd-none d-sm-table-cell') %>
+          <th>Item</th>
+          <th class="d-none d-md-table-cell">Kind</th>
+          <th class="d-none d-xl-table-cell">Claimer → Poster</th>
+          <th class="d-none d-lg-table-cell">Answer</th>
+          <%- th('Status', 'status') %>
+          <%- th('Updated', 'updated', 'd-none d-xl-table-cell') %>
+          <th class="col-actions no-print">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!claims.length) { %>
+          <tr><td colspan="8" class="text-center text-muted py-5">No claims found.</td></tr>
+        <% } %>
+        <% claims.forEach((c) => { %>
+          <tr>
+            <td class="code-cell d-none d-sm-table-cell">CL-<%= String(c.id).padStart(3, '0') %></td>
+            <td class="cell-wide">
+              <a href="/admin/items/<%= c.item.id %>" class="fw-semibold text-decoration-none text-body"><%= c.item.title %></a>
+              <div class="small text-muted">IT-<%= String(c.item.id).padStart(3, '0') %> · item <%= c.item.status %></div>
+            </td>
+            <td class="d-none d-md-table-cell">
+              <span class="pill as-written pill-<%= c.item.type %>"><%= c.item.type === 'found' ? 'This is mine' : 'I found this' %></span>
+            </td>
+            <td class="d-none d-xl-table-cell small text-nowrap">
+              <% if (c.claimer) { %><a href="/admin/users/<%= c.claimer.id %>"><%= c.claimer.name %></a><% } else { %>—<% } %>
+              <i class="bi bi-arrow-right text-muted"></i>
+              <% if (c.item.owner) { %><a href="/admin/users/<%= c.item.owner.id %>"><%= c.item.owner.name %></a><% } else { %>—<% } %>
+            </td>
+            <td class="d-none d-lg-table-cell text-nowrap">
+              <% if (c.answer_correct === true) { %><span class="text-success"><i class="bi bi-check-circle-fill"></i> Match</span>
+              <% } else if (c.answer_correct === false) { %><span class="text-danger"><i class="bi bi-x-circle-fill"></i> No match</span>
+              <% } else { %><span class="text-muted">—</span><% } %>
+            </td>
+            <td><span class="pill pill-<%= c.status %>"><%= c.status === 'accepted' ? 'handover' : c.status %></span></td>
+            <td class="d-none d-xl-table-cell text-nowrap"><%= formatDate(c.updatedAt) %></td>
+            <td class="col-actions no-print">
+              <a href="/admin/claims/<%= c.id %>" class="btn-icon" title="View claim" aria-label="View claim <%= c.id %>"><i class="bi bi-eye"></i></a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer">
+    <%- include('../../partials/pagination', { pagination, baseQuery: pageQuery, noun: 'claim' }) %>
+  </div>
+</div>

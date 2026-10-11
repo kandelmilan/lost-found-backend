@@ -1,0 +1,287 @@
+<%
+  const item = claim.item;
+  const isOwnership = item.type === 'found';
+  const active = claim.status === 'pending' || claim.status === 'accepted';
+  const roleName = { claimer: 'the claimer', poster: 'the poster', admin: 'an admin', system: 'the system' };
+
+  const steps = [
+    { label: isOwnership ? '"This is mine" sent' : '"I found this" sent', at: claim.createdAt, done: true },
+  ];
+  if (claim.status === 'rejected') {
+    steps.push({ label: 'Rejected' + (claim.rejection_reason ? ` — ${claim.rejection_reason}` : ''), at: claim.decided_at, bad: true });
+  } else {
+    steps.push({ label: 'Accepted by poster', at: claim.decided_at, done: Boolean(claim.decided_at) });
+    steps.push({ label: 'Claimer confirmed handover', at: claim.claimer_confirmed_at, done: Boolean(claim.claimer_confirmed_at) });
+    steps.push({ label: 'Poster confirmed handover', at: claim.poster_confirmed_at, done: Boolean(claim.poster_confirmed_at) });
+    if (claim.status === 'cancelled') {
+      steps.push({ label: `Cancelled by ${roleName[claim.cancelled_by] || 'someone'}` + (claim.cancel_reason ? ` — ${claim.cancel_reason}` : ''), at: claim.cancelled_at, bad: true });
+    } else {
+      steps.push({ label: 'Returned to owner 🎉', at: claim.completed_at, done: Boolean(claim.completed_at) });
+    }
+  }
+  const person = (u, role) => ({ u, role });
+  const people = [person(claim.claimer, isOwnership ? 'Claimer (says they own it)' : 'Claimer (says they found it)'), person(item.owner, isOwnership ? 'Poster (finder)' : 'Poster (owner)')];
+%>
+<% if (conversation) { %>
+  <a href="/admin/inbox" class="back-link"><i class="bi bi-arrow-left"></i> Inbox</a>
+<% } else { %>
+  <a href="/admin/claims" class="back-link"><i class="bi bi-arrow-left"></i> Claims</a>
+<% } %>
+<div class="page-header">
+  <div class="min-w-0">
+    <h1 class="page-heading">Claim CL-<%= String(claim.id).padStart(3, '0') %></h1>
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+      <span class="pill as-written pill-<%= item.type %>"><%= isOwnership ? 'This is mine' : 'I found this' %></span>
+      <span class="pill pill-<%= claim.status %>"><%= claim.status === 'accepted' ? 'handover in progress' : claim.status %></span>
+    </div>
+  </div>
+  <% if (active) { %>
+    <button type="button" class="btn btn-outline-danger no-print" data-bs-toggle="modal" data-bs-target="#cancelModal">
+      <i class="bi bi-x-octagon"></i> Cancel claim
+    </button>
+  <% } %>
+</div>
+
+
+<% if (conversation && active) { %>
+  <% const posterConfirmed = Boolean(claim.poster_confirmed_at); %>
+  <div class="card mb-3 border border-primary-subtle">
+    <div class="card-header d-flex align-items-center gap-2">
+      <h2 class="card-title"><i class="bi bi-reply"></i> Respond as <%= item.owner.name %></h2>
+      <span class="small text-muted ms-auto d-none d-md-inline">This item was posted from the admin website, so admins answer it.</span>
+    </div>
+    <div class="card-body px-4">
+      <% if (claim.status === 'pending') { %>
+        <p class="mb-3">
+          <% if (isOwnership) { %>
+            <strong><%= claim.claimer ? claim.claimer.name : 'Someone' %></strong> says this item is theirs.
+            Their answer <%= claim.answer_correct ? 'matches ✅' : 'does not match ❌' %>.
+          <% } else { %>
+            <strong><%= claim.claimer ? claim.claimer.name : 'Someone' %></strong> says they found this item.
+          <% } %>
+          Ask questions in the chat below if you're not sure.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <form method="post" action="/admin/claims/<%= claim.id %>/accept" data-confirm="Accept this claim? The item is reserved for this person and other waiting claims are declined.">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle"></i> Accept</button>
+          </form>
+          <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal"><i class="bi bi-x-circle"></i> Decline</button>
+        </div>
+      <% } else { %>
+        <form method="post" action="/admin/claims/<%= claim.id %>/meeting" class="row g-2 align-items-end mb-3" data-local-datetime>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="at" value="<%= claim.meeting_at ? claim.meeting_at.toISOString() : '' %>">
+          <div class="col-12 col-md-5">
+            <label class="form-label small" for="meet-place">Meeting place</label>
+            <input id="meet-place" name="place" class="form-control" required minlength="2" maxlength="255" value="<%= claim.meeting_place || '' %>" placeholder="e.g. Our office, Ratnapark police post">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small" for="meet-at">Date &amp; time</label>
+            <input id="meet-at" type="datetime-local" class="form-control" data-iso="<%= claim.meeting_at ? claim.meeting_at.toISOString() : '' %>">
+          </div>
+          <div class="col-12 col-md-3 d-grid">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-calendar-check"></i> Save meeting</button>
+          </div>
+          <div class="col-12">
+            <input name="notes" class="form-control form-control-sm" maxlength="500" value="<%= claim.meeting_notes || '' %>" placeholder="Notes (optional), e.g. Ask for the front desk">
+          </div>
+        </form>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <% if (posterConfirmed) { %>
+            <span class="text-success"><i class="bi bi-check2-all"></i> You confirmed the handover.</span>
+            <span class="text-muted">Waiting for <%= claim.claimer ? claim.claimer.name : 'the claimer' %> to confirm.</span>
+          <% } else { %>
+            <form method="post" action="/admin/claims/<%= claim.id %>/confirm" data-confirm="Confirm only once the item has actually changed hands.">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="btn btn-success"><i class="bi bi-hand-thumbs-up"></i> <%= isOwnership ? 'We handed it over' : 'We got it back' %></button>
+            </form>
+            <% if (claim.claimer_confirmed_at) { %><span class="text-muted small"><%= claim.claimer ? claim.claimer.name : 'The claimer' %> has already confirmed.</span><% } %>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+<% } %>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-box-seam"></i> Item</h2></div>
+      <div class="card-body px-4 d-flex gap-3 align-items-center">
+        <% if (item.images && item.images.length) { %>
+          <img src="<%= item.images[0].url %>" alt="" class="thumb">
+        <% } else { %>
+          <div class="thumb thumb-empty"><i class="bi bi-image"></i></div>
+        <% } %>
+        <div class="min-w-0">
+          <a href="/admin/items/<%= item.id %>" class="fw-semibold"><%= item.title %></a>
+          <div class="small text-muted"><%= item.area_name %> · item status: <%= item.status %></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-chat-left-text"></i> What the claimer said</h2></div>
+      <div class="card-body px-4">
+        <% if (isOwnership) { %>
+          <div class="mb-3">
+            <div class="small text-muted">Secret question</div>
+            <div class="fw-semibold"><%= item.secret_question %></div>
+          </div>
+          <div class="mb-3">
+            <div class="small text-muted">Their answer</div>
+            <div>
+              <%= claim.answer %>
+              <% if (claim.answer_correct) { %><span class="text-success ms-2"><i class="bi bi-check-circle-fill"></i> matches</span>
+              <% } else { %><span class="text-danger ms-2"><i class="bi bi-x-circle-fill"></i> does not match</span><% } %>
+            </div>
+          </div>
+        <% } %>
+        <div class="small text-muted">Message</div>
+        <p class="mb-0 white-space-pre text-break"><%= claim.message || '—' %></p>
+      </div>
+    </div>
+
+
+    <% if (conversation) { %>
+      <div class="card mb-3" id="chat">
+        <div class="card-header d-flex align-items-center">
+          <h2 class="card-title"><i class="bi bi-chat-dots"></i> Chat with <%= claim.claimer ? claim.claimer.name : 'claimer' %></h2>
+          <span class="small text-muted ms-auto d-flex align-items-center gap-1" data-live-indicator><span class="live-dot"></span> Live</span>
+        </div>
+        <div class="chat-log" data-scroll-bottom data-live-chat="/admin/claims/<%= claim.id %>/live" data-last-id="<%= conversation.messages.length ? conversation.messages[conversation.messages.length - 1].id : 0 %>" data-status="<%= claim.status %>">
+          <% if (!conversation.messages.length) { %>
+            <p class="text-muted text-center my-4">No messages yet.</p>
+          <% } %>
+          <% conversation.messages.forEach((m) => { %>
+            <div class="chat-row <%= m.is_mine ? 'mine' : '' %>" data-id="<%= m.id %>">
+              <div class="chat-bubble">
+                <div class="white-space-pre text-break"><%= m.body %></div>
+                <div class="chat-meta"><%= m.is_mine ? item.owner.name : (claim.claimer ? claim.claimer.name : '') %> · <%= formatDate(m.createdAt) %><% if (m.is_mine) { %><span class="chat-seen"><%= m.read_at ? ' · seen' : '' %></span><% } %></div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+        <div class="card-footer">
+          <% if (conversation.canSend) { %>
+            <form method="post" action="/admin/claims/<%= claim.id %>/messages" class="d-flex gap-2" data-chat-form>
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input name="body" class="form-control" maxlength="2000" placeholder="Write a message..." required autocomplete="off" aria-label="Message">
+              <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i><span class="d-none d-sm-inline"> Send</span></button>
+            </form>
+          <% } else { %>
+            <span class="text-muted small">This chat is closed because the claim is <%= claim.status %>.</span>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-geo"></i> Handover meeting</h2></div>
+      <div class="card-body px-4">
+        <dl class="row mb-0 detail-list">
+          <dt class="col-4">Place</dt><dd class="col-8"><%= claim.meeting_place || 'Not set yet' %></dd>
+          <dt class="col-4">Time</dt><dd class="col-8"><%= claim.meeting_at ? formatDate(claim.meeting_at) : 'Not set yet' %></dd>
+          <dt class="col-4">Notes</dt><dd class="col-8"><%= claim.meeting_notes || '—' %></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-signpost-split"></i> Progress</h2></div>
+      <div class="card-body px-4">
+        <ul class="timeline">
+          <% steps.forEach((s) => { %>
+            <li>
+              <span class="dot <%= s.bad ? 'bad' : s.done ? 'done' : '' %>"></span>
+              <div class="<%= s.done || s.bad ? 'fw-semibold' : 'text-muted' %>"><%= s.label %></div>
+              <% if (s.at) { %><div class="small text-muted"><%= formatDate(s.at) %></div><% } %>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-people"></i> People</h2></div>
+      <ul class="list-group list-group-flush">
+        <% people.forEach(({ u, role }) => { %>
+          <li class="list-group-item px-4">
+            <div class="small text-muted"><%= role %></div>
+            <% if (u) { %>
+              <a href="/admin/users/<%= u.id %>" class="fw-semibold"><%= u.name %></a>
+              <% if (u.is_blocked) { %><span class="pill pill-blocked">Blocked</span><% } %>
+              <div class="small text-muted"><%= u.email || u.phone %></div>
+            <% } else { %>Deleted account<% } %>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+
+    <% if (history.length) { %>
+      <div class="card">
+        <div class="card-header"><h2 class="card-title"><i class="bi bi-clock-history"></i> Admin actions</h2></div>
+        <ul class="list-group list-group-flush">
+          <% history.forEach((log) => { %>
+            <li class="list-group-item px-4">
+              <div class="d-flex justify-content-between gap-2">
+                <span class="fw-semibold"><%= log.action === 'claim.cancel' ? 'Cancelled' : log.action %></span>
+                <span class="small text-muted"><%= formatDate(log.createdAt) %></span>
+              </div>
+              <div class="small text-muted">by <%= log.admin ? log.admin.name : 'Deleted admin' %></div>
+              <% if (log.details && log.details.reason) { %><div class="small mt-1">Reason: <%= log.details.reason %></div><% } %>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<% if (active) { %>
+  <div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form method="post" action="/admin/claims/<%= claim.id %>/cancel" class="modal-content">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="modal-header">
+          <h3 class="modal-title h5" id="cancelModalLabel">Cancel this claim?</h3>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted">Use this for disputes or suspected fraud. <% if (claim.status === 'accepted') { %>The handover stops and the item goes back to the feed.<% } %> Both people see the reason.</p>
+          <label for="cancelReason" class="form-label">Reason</label>
+          <textarea id="cancelReason" name="reason" class="form-control" rows="3" maxlength="500" placeholder="e.g. Reported as a fake claim"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep claim</button>
+          <button type="submit" class="btn btn-danger">Cancel claim</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<% } %>
+
+<% if (conversation && claim.status === 'pending') { %>
+  <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form method="post" action="/admin/claims/<%= claim.id %>/reject" class="modal-content">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="modal-header">
+          <h3 class="modal-title h5" id="rejectModalLabel">Decline this claim?</h3>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <label for="rejectReason" class="form-label">Reason <span class="text-muted">(they will see it)</span></label>
+          <textarea id="rejectReason" name="reason" class="form-control" rows="3" maxlength="500" placeholder="e.g. The description doesn't match the item"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger">Decline</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<% } %>

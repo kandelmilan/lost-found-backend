@@ -1,0 +1,72 @@
+<%
+  const filterFields = [
+    { name: 'area', label: 'Area', options: areas, current: filters.area },
+    { name: 'admin', label: 'Admin', options: admins.map((a) => [a.id, a.name]), current: filters.admin },
+  ];
+  const th = (label, key, extraClass) => include('../../partials/sort-th', { label, key, list, query, extraClass });
+  const detailText = (log) => {
+    const d = log.details || {};
+    if (d.reason) return `Reason: ${d.reason}`;
+    if (d.note) return `Note: ${d.note}`;
+    if (d.title) return d.title;
+    if (d.name) return d.name;
+    if (d.after && d.after.name) return d.after.name;
+    return '';
+  };
+%>
+<div class="page-header">
+  <h1 class="page-heading">Activity Logs</h1>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title-row">
+      <h2 class="card-title"><i class="bi bi-clock-history"></i> Everything admins have done</h2>
+    </div>
+  </div>
+
+  <%- include('../../partials/table-toolbar', {
+    action: '/admin/logs',
+    placeholder: 'Search action (e.g. blocked) or an ID...',
+    list,
+    exportUrl,
+    filterFields,
+    activeFilters: Object.keys(filters).length,
+  }) %>
+
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <thead>
+        <tr>
+          <%- th('When', 'created') %>
+          <th>Admin</th>
+          <%- th('Action', 'action') %>
+          <th class="d-none d-md-table-cell">Details</th>
+          <th class="d-none d-lg-table-cell">IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!logs.length) { %>
+          <tr><td colspan="5" class="text-center text-muted py-5">No activity found.</td></tr>
+        <% } %>
+        <% logs.forEach((log) => { %>
+          <% const link = targetLink(log); %>
+          <tr>
+            <td class="text-nowrap"><%= formatDate(log.createdAt) %></td>
+            <td><%= log.admin ? log.admin.name : 'Deleted admin' %></td>
+            <td>
+              <%= actionLabel(log.action) %>
+              <% if (link) { %><a href="<%= link %>" class="ms-1 small">#<%= log.target_id %></a><% } %>
+            </td>
+            <td class="d-none d-md-table-cell small text-muted text-truncate item-title"><%= detailText(log) %></td>
+            <td class="d-none d-lg-table-cell small text-muted"><%= log.ip || '' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer">
+    <%- include('../../partials/pagination', { pagination, baseQuery: pageQuery, noun: 'entry' }) %>
+  </div>
+</div>

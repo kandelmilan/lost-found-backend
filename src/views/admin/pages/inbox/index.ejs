@@ -1,0 +1,71 @@
+<%
+  const tabs = [['open', 'Needs attention'], ['completed', 'Returned'], ['rejected', 'Declined'], ['cancelled', 'Cancelled']];
+%>
+<div class="page-header">
+  <div>
+    <h1 class="page-heading">Inbox</h1>
+    <p class="text-muted mb-0 mt-1">Claims and messages on items posted from this admin website. Any admin can answer them.</p>
+  </div>
+  <a href="/admin/items/new" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Post Item</a>
+</div>
+
+<div class="card" data-inbox-page>
+  <div class="card-header">
+    <ul class="nav nav-pills gap-1">
+      <% tabs.forEach(([key, label]) => { %>
+        <li class="nav-item"><a class="nav-link <%= status === key ? 'active' : '' %>" href="/admin/inbox?status=<%= key %>"><%= label %></a></li>
+      <% }) %>
+    </ul>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>From</th>
+          <th>Status</th>
+          <th class="d-none d-md-table-cell">Messages</th>
+          <th class="d-none d-lg-table-cell">Updated</th>
+          <th class="col-actions">Open</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!claims.length) { %>
+          <tr><td colspan="6" class="text-center text-muted py-5"><i class="bi bi-inbox fs-2 d-block mb-2"></i>Nothing here.</td></tr>
+        <% } %>
+        <% claims.forEach((c) => { %>
+          <% const unread = Number(c.get('unread_count')); %>
+          <tr class="<%= c.status === 'pending' || unread ? 'fw-semibold' : '' %>">
+            <td class="cell-wide">
+              <div class="item-cell">
+                <% if (c.item.images && c.item.images.length) { %>
+                  <img src="<%= c.item.images[0].url %>" alt="" class="thumb">
+                <% } else { %>
+                  <div class="thumb thumb-empty"><i class="bi bi-image"></i></div>
+                <% } %>
+                <div class="min-w-0">
+                  <div class="title text-truncate"><%= c.item.title %></div>
+                  <div class="small text-muted fw-normal"><%= c.item.type === 'found' ? '"This is mine"' : '"I found this"' %> · posted by <%= c.item.owner.name %></div>
+                </div>
+              </div>
+            </td>
+            <td><%= c.claimer ? c.claimer.name : 'Deleted account' %></td>
+            <td><span class="pill pill-<%= c.status %>"><%= c.status === 'accepted' ? 'handover' : c.status === 'pending' ? 'needs decision' : c.status %></span></td>
+            <td class="d-none d-md-table-cell">
+              <% if (unread) { %><span class="badge rounded-pill text-bg-danger"><%= unread %> new</span><% } else { %><span class="text-muted fw-normal">—</span><% } %>
+            </td>
+            <td class="d-none d-lg-table-cell text-nowrap fw-normal"><%= formatDate(c.updatedAt) %></td>
+            <td class="col-actions">
+              <a href="/admin/claims/<%= c.id %>" class="btn-icon" title="Open" aria-label="Open claim <%= c.id %>"><i class="bi bi-chat-dots"></i></a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer">
+    <%- include('../../partials/pagination', { pagination, baseQuery: { status }, noun: 'claim' }) %>
+  </div>
+</div>

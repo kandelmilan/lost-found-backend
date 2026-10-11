@@ -1,0 +1,40 @@
+<%
+  const menu = [
+    { key: 'dashboard', label: 'Dashboard', icon: 'speedometer2', href: '/admin' },
+    { key: 'inbox', label: 'Inbox', icon: 'inbox', href: '/admin/inbox', badge: typeof inboxCount !== 'undefined' ? inboxCount : 0 },
+    { key: 'items', label: 'Items', icon: 'box-seam', href: '/admin/items' },
+    { key: 'claims', label: 'Claims', icon: 'patch-check', href: '/admin/claims' },
+    { key: 'users', label: 'Users', icon: 'people', href: '/admin/users' },
+    { key: 'categories', label: 'Categories', icon: 'tags', href: '/admin/categories' },
+    { key: 'reports', label: 'Reports', icon: 'flag', href: '/admin/reports' },
+    { key: 'logs', label: 'Activity Logs', icon: 'clock-history', href: '/admin/logs' },
+    { key: 'settings', label: 'Settings', icon: 'gear', href: '/admin/settings' },
+  ];
+%>
+<div class="sidebar-inner">
+  <div class="d-flex align-items-center">
+    <a href="/admin" class="sidebar-brand flex-grow-1">Lost &amp; Found Admin</a>
+    <button type="button" class="btn-close btn-close-white d-lg-none me-3" data-bs-dismiss="offcanvas" data-bs-target="#sidebar" aria-label="Close menu"></button>
+  </div>
+
+  <div class="sidebar-user">
+    <div class="sidebar-user-name"><%= admin.name %></div>
+    <div class="sidebar-user-status">Signed in</div>
+  </div>
+
+  <nav class="sidebar-nav nav flex-column">
+    <% menu.forEach((m) => { %>
+      <% if (m.soon) { %>
+        <span class="nav-link disabled" aria-disabled="true">
+          <i class="bi bi-<%= m.icon %>"></i> <%= m.label %>
+          <span class="badge badge-soon">Soon</span>
+        </span>
+      <% } else { %>
+        <a class="nav-link <%= active === m.key ? 'active' : '' %>" href="<%= m.href %>" <%= active === m.key ? 'aria-current=page' : '' %>>
+          <i class="bi bi-<%= m.icon %>"></i> <%= m.label %>
+          <% if (m.key === 'inbox') { %><span class="badge rounded-pill text-bg-danger ms-auto me-2" data-inbox-badge <%= m.badge ? '' : 'hidden' %>><%= m.badge %></span><% } %>
+        </a>
+      <% } %>
+    <% }) %>
+  </nav>
+</div>

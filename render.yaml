@@ -1,0 +1,75 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Render dashboard → New → Blueprint → pick this repo. Then fill the "sync: false" values
+# (database + Cloudinary + admin login) when Render asks for them.
+services:
+  - type: web
+    name: lost-found-api
+    runtime: node
+    plan: free
+    region: singapore # closest Render region to Nepal
+    branch: main
+    buildCommand: npm ci
+    # Runs new migrations + seeders (each runs once), then starts the server.
+    startCommand: npm run render:start
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: NPM_CONFIG_PRODUCTION
+        value: "true"
+
+      # --- MySQL (Render has no MySQL; use a free Aiven MySQL — see DEPLOY.md) ---
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: DB_SSL_CA
+        sync: false
+
+      # --- Secrets (Render generates random values) ---
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_DAYS
+        value: "30"
+
+      # --- Admin panel login (created on first start) ---
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+
+      # --- Photos: Render's disk is wiped on restart, so use Cloudinary (free) ---
+      - key: STORAGE_DRIVER
+        value: cloudinary
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # --- Push notifications: paste the whole Firebase service-account JSON (optional) ---
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: SWAGGER_ENABLED
+        value: "true"

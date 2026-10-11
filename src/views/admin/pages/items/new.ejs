@@ -1,0 +1,148 @@
+<%
+  const invalid = (field) => (errors[field] ? 'is-invalid' : '');
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const feedback = (field) => (errors[field] ? `<div class="invalid-feedback d-block">${esc(errors[field])}</div>` : '');
+  const isEdit = typeof editing !== 'undefined' && editing;
+  const existing = isEdit ? editing.images : [];
+  const backUrl = isEdit ? `/admin/items/${editing.id}` : '/admin/items';
+%>
+<a href="<%= backUrl %>" class="back-link"><i class="bi bi-arrow-left"></i> <%= isEdit ? 'Back to item' : 'Items' %></a>
+<div class="page-header">
+  <div>
+    <h1 class="page-heading"><%= isEdit ? 'Edit Item' : 'Post Item' %></h1>
+    <% if (isEdit) { %><div class="text-muted mt-1">IT-<%= String(editing.id).padStart(3, '0') %> · posted by <%= editing.owner ? editing.owner.name : 'deleted account' %></div><% } %>
+  </div>
+</div>
+
+<% if (Object.keys(errors).length) { %>
+  <div class="alert alert-danger" role="alert">Please fix the highlighted fields.</div>
+<% } %>
+
+<form id="item-form" method="post" action="<%= isEdit ? `/admin/items/${editing.id}/edit` : '/admin/items' %>" enctype="multipart/form-data" novalidate data-existing-photos="<%= existing.length %>">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <div class="row g-3">
+    <div class="col-12 col-xl-7">
+      <div class="card mb-3">
+        <div class="card-header"><h2 class="card-title"><i class="bi bi-card-text"></i> Item details</h2></div>
+        <div class="card-body p-4">
+          <div class="mb-3">
+            <span class="form-label d-block">This item was</span>
+            <div class="btn-group w-100" role="group" aria-label="Item type">
+              <input type="radio" class="btn-check" name="type" id="type-found" value="found" <%= values.type !== 'lost' ? 'checked' : '' %> <%= isEdit ? 'disabled' : '' %>>
+              <label class="btn btn-outline-primary" for="type-found"><i class="bi bi-check2-circle"></i> Found</label>
+              <input type="radio" class="btn-check" name="type" id="type-lost" value="lost" <%= values.type === 'lost' ? 'checked' : '' %> <%= isEdit ? 'disabled' : '' %>>
+              <label class="btn btn-outline-primary" for="type-lost"><i class="bi bi-question-circle"></i> Lost</label>
+            </div>
+            <% if (isEdit) { %><div class="form-text">Lost / found can't be changed after posting.</div><% } %>
+            <%- feedback('type') %>
+          </div>
+
+          <div class="mb-3">
+            <label for="title" class="form-label">Title</label>
+            <input type="text" id="title" name="title" class="form-control <%= invalid('title') %>" maxlength="120" required value="<%= values.title %>" placeholder="e.g. Black leather wallet">
+            <%- feedback('title') %>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label for="category_id" class="form-label">Category</label>
+              <select id="category_id" name="category_id" class="form-select <%= invalid('category_id') %>" required>
+                <option value="">Choose...</option>
+                <% categories.forEach((c) => { %>
+                  <option value="<%= c.id %>" <%= String(values.category_id) === String(c.id) ? 'selected' : '' %>><%= c.name %></option>
+                <% }) %>
+              </select>
+              <%- feedback('category_id') %>
+            </div>
+            <div class="col-sm-6">
+              <label for="event_date" class="form-label">Date lost / found</label>
+              <input type="date" id="event_date" name="event_date" class="form-control <%= invalid('event_date') %>" required value="<%= values.event_date %>">
+              <%- feedback('event_date') %>
+            </div>
+          </div>
+
+          <div class="mb-0">
+            <label for="description" class="form-label">Description <span class="text-muted small">(optional)</span></label>
+            <textarea id="description" name="description" class="form-control <%= invalid('description') %>" rows="4" maxlength="2000" placeholder="Colour, brand, what's inside... Don't include full ID numbers."><%= values.description %></textarea>
+            <%- feedback('description') %>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3" id="secret-section">
+        <div class="card-header"><h2 class="card-title"><i class="bi bi-shield-lock"></i> Owner verification</h2></div>
+        <div class="card-body p-4">
+          <p class="small text-muted">People claiming this item must answer this question. Ask something only the real owner knows.</p>
+          <div class="mb-3">
+            <label for="secret_question" class="form-label">Secret question</label>
+            <input type="text" id="secret_question" name="secret_question" class="form-control <%= invalid('secret_question') %>" maxlength="255" value="<%= values.secret_question %>" placeholder="e.g. What name is on the card inside?">
+            <%- feedback('secret_question') %>
+          </div>
+          <div>
+            <label for="secret_answer" class="form-label"><%= isEdit ? 'New answer' : 'Answer' %></label>
+            <input type="text" id="secret_answer" name="secret_answer" class="form-control <%= invalid('secret_answer') %>" maxlength="100" autocomplete="off" placeholder="<%= isEdit ? 'Leave empty to keep the current question and answer' : 'Stored encrypted — nobody can read it later' %>" <%= isEdit ? 'data-keep-optional' : '' %>>
+            <% if (isEdit) { %><div class="form-text">The current answer is encrypted and can't be shown. To change the question, type a new answer too.</div><% } %>
+            <%- feedback('secret_answer') %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-5">
+      <div class="card mb-3">
+        <div class="card-header"><h2 class="card-title"><i class="bi bi-geo-alt"></i> Location</h2></div>
+        <div class="card-body p-4">
+          <div class="mb-3">
+            <label for="area_name" class="form-label">Area</label>
+            <input type="text" id="area_name" name="area_name" class="form-control <%= invalid('area_name') %>" maxlength="150" required value="<%= values.area_name %>" placeholder="e.g. Ratnapark, Kathmandu">
+            <%- feedback('area_name') %>
+          </div>
+          <div id="map-picker" class="map-picker mb-2" role="application" aria-label="Map: click to set the location"></div>
+          <div class="form-text mb-3">Click the map or drag the pin. App users only see the area within about 1 km.</div>
+          <div class="row g-2">
+            <div class="col-6">
+              <label for="latitude" class="form-label small">Latitude</label>
+              <input type="number" step="any" id="latitude" name="latitude" class="form-control form-control-sm <%= invalid('latitude') %>" required value="<%= values.latitude %>">
+              <%- feedback('latitude') %>
+            </div>
+            <div class="col-6">
+              <label for="longitude" class="form-label small">Longitude</label>
+              <input type="number" step="any" id="longitude" name="longitude" class="form-control form-control-sm <%= invalid('longitude') %>" required value="<%= values.longitude %>">
+              <%- feedback('longitude') %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header"><h2 class="card-title"><i class="bi bi-images"></i> Photos</h2></div>
+        <div class="card-body p-4">
+          <% if (existing.length) { %>
+            <div class="form-label">Current photos <span class="text-muted fw-normal">— tick to remove</span></div>
+            <div class="photo-previews mb-3">
+              <% existing.forEach((img) => { %>
+                <label class="existing-photo">
+                  <img src="<%= img.url %>" alt="Current photo">
+                  <input type="checkbox" class="form-check-input" name="remove_images" value="<%= img.id %>" aria-label="Remove this photo">
+                </label>
+              <% }) %>
+            </div>
+            <div class="form-label">Add photos</div>
+          <% } %>
+          <input type="file" id="images" name="images" class="form-control <%= invalid('images') %>" accept="image/jpeg,image/png,image/webp" multiple>
+          <div class="form-text">Up to 5 photos in total, JPG / PNG / WEBP, max 8 MB each. Location data inside photos is removed automatically.</div>
+          <div id="photo-error" class="invalid-feedback d-block"><%= errors.images || '' %></div>
+          <div id="photo-previews" class="photo-previews mt-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 justify-content-end">
+    <a href="<%= backUrl %>" class="btn btn-light">Cancel</a>
+    <button type="submit" class="btn btn-primary px-4">
+      <% if (isEdit) { %><i class="bi bi-check2"></i> Save changes<% } else { %><i class="bi bi-send"></i> Post Item<% } %>
+    </button>
+  </div>
+</form>

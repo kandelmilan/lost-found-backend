@@ -1,0 +1,93 @@
+<%
+  const actionLabels = { 'user.block': 'Blocked', 'user.unblock': 'Unblocked' };
+%>
+<a href="/admin/users" class="back-link"><i class="bi bi-arrow-left"></i> Users</a>
+<div class="page-header">
+  <div class="d-flex align-items-center gap-3 min-w-0">
+    <div class="avatar-circle"><%= user.name.charAt(0).toUpperCase() %></div>
+    <div class="min-w-0">
+      <h1 class="page-heading text-truncate"><%= user.name %></h1>
+      <div class="d-flex align-items-center gap-2 mt-1">
+        <span class="code-cell text-muted">U-<%= String(user.id).padStart(3, '0') %></span>
+        <span class="pill <%= user.is_blocked ? 'pill-blocked' : 'pill-active' %>"><%= user.is_blocked ? 'Blocked' : 'Active' %></span>
+      </div>
+    </div>
+  </div>
+  <div class="no-print">
+    <% if (user.is_blocked) { %>
+      <form method="post" action="/admin/users/<%= user.id %>/unblock">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn btn-success"><i class="bi bi-unlock"></i> Unblock user</button>
+      </form>
+    <% } else { %>
+      <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#blockModal">
+        <i class="bi bi-slash-circle"></i> Block user
+      </button>
+    <% } %>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-person-vcard"></i> Profile</h2></div>
+      <div class="card-body px-4">
+        <dl class="row mb-0 detail-list">
+          <dt class="col-5">Email</dt><dd class="col-7 text-break"><%= user.email || '—' %></dd>
+          <dt class="col-5">Phone</dt><dd class="col-7"><%= user.phone || '—' %></dd>
+          <dt class="col-5">Verified</dt><dd class="col-7"><%= user.is_verified ? 'Yes' : 'No' %></dd>
+          <dt class="col-5">Items returned</dt><dd class="col-7"><%= user.returned_count %></dd>
+          <dt class="col-5">Signed-in devices</dt><dd class="col-7"><%= activeSessions %></dd>
+          <dt class="col-5">Joined</dt><dd class="col-7"><%= formatDate(user.createdAt) %></dd>
+          <dt class="col-5">Last login</dt><dd class="col-7"><%= formatDate(user.last_login_at) %></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-7">
+    <div class="card h-100">
+      <div class="card-header"><h2 class="card-title"><i class="bi bi-clock-history"></i> Moderation history</h2></div>
+      <ul class="list-group list-group-flush">
+        <% if (!history.length) { %>
+          <li class="list-group-item text-muted small py-4 text-center">No admin actions on this user yet.</li>
+        <% } %>
+        <% history.forEach((log) => { %>
+          <li class="list-group-item px-4">
+            <div class="d-flex justify-content-between gap-2">
+              <span class="fw-semibold"><%= actionLabels[log.action] || log.action %></span>
+              <span class="small text-muted text-nowrap"><%= formatDate(log.createdAt) %></span>
+            </div>
+            <div class="small text-muted">by <%= log.admin ? log.admin.name : 'Deleted admin' %></div>
+            <% if (log.details && log.details.reason) { %>
+              <div class="small mt-1">Reason: <%= log.details.reason %></div>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<% if (!user.is_blocked) { %>
+  <div class="modal fade" id="blockModal" tabindex="-1" aria-labelledby="blockModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form method="post" action="/admin/users/<%= user.id %>/block" class="modal-content">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="modal-header">
+          <h3 class="modal-title h5" id="blockModalLabel">Block <%= user.name %>?</h3>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted">They will be signed out of every device and won't be able to log in until unblocked. Their items disappear from the app.</p>
+          <label for="reason" class="form-label">Reason <span class="text-muted">(optional, internal only)</span></label>
+          <textarea id="reason" name="reason" class="form-control" rows="3" maxlength="500" placeholder="e.g. Fake claims on multiple items"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-danger">Block user</button>
+        </div>
+      </form>
+    </div>
+  </div>
+<% } %>

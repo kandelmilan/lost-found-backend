@@ -1,0 +1,80 @@
+<%
+  const filterFields = [
+    { name: 'status', label: 'Status', options: [['open', 'Open'], ['resolved', 'Resolved'], ['dismissed', 'Dismissed']], current: filters.status },
+    { name: 'target_type', label: 'About', options: [['item', 'A post'], ['user', 'A person']], current: filters.target_type },
+    { name: 'reason', label: 'Reason', options: Object.entries(reasonLabels), current: filters.reason },
+  ];
+  const th = (label, key, extraClass) => include('../../partials/sort-th', { label, key, list, query, extraClass });
+%>
+<div class="page-header">
+  <h1 class="page-heading">Reports</h1>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title-row">
+      <h2 class="card-title"><i class="bi bi-flag"></i> User reports</h2>
+    </div>
+  </div>
+
+  <%- include('../../partials/table-toolbar', {
+    action: '/admin/reports',
+    placeholder: 'Search details, reporter or ID...',
+    list,
+    exportUrl,
+    filterFields,
+    activeFilters: Object.keys(filters).length,
+  }) %>
+
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <thead>
+        <tr>
+          <%- th('Code', 'id', 'd-none d-sm-table-cell') %>
+          <th>Reported</th>
+          <%- th('Reason', 'reason') %>
+          <th class="d-none d-xl-table-cell">Reported by</th>
+          <%- th('Status', 'status') %>
+          <%- th('Date', 'created', 'd-none d-xl-table-cell') %>
+          <th class="col-actions no-print">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!reports.length) { %>
+          <tr><td colspan="7" class="text-center text-muted py-5">No reports found. 🎉</td></tr>
+        <% } %>
+        <% reports.forEach((r) => { %>
+          <tr>
+            <td class="code-cell d-none d-sm-table-cell">RP-<%= String(r.id).padStart(3, '0') %></td>
+            <td class="cell-wide">
+              <span class="pill as-written pill-report me-1"><%= r.target_type === 'item' ? 'Post' : 'Person' %></span>
+              <% if (!r.target) { %>
+                <span class="text-muted">Deleted <%= r.target_type %> #<%= r.target_id %></span>
+              <% } else if (r.target_type === 'item') { %>
+                <a href="/admin/items/<%= r.target.id %>" class="fw-semibold"><%= r.target.title %></a>
+                <% if (r.target.is_hidden) { %><span class="pill pill-hidden">Hidden</span><% } %>
+              <% } else { %>
+                <a href="/admin/users/<%= r.target.id %>" class="fw-semibold"><%= r.target.name %></a>
+                <% if (r.target.is_blocked) { %><span class="pill pill-blocked">Blocked</span><% } %>
+              <% } %>
+              <% if (r.details) { %><div class="small text-muted text-truncate item-title">“<%= r.details %>”</div><% } %>
+            </td>
+            <td class="text-nowrap"><%= reasonLabels[r.reason] %></td>
+            <td class="d-none d-xl-table-cell">
+              <% if (r.reporter) { %><a href="/admin/users/<%= r.reporter.id %>"><%= r.reporter.name %></a><% } else { %><span class="text-muted">Deleted account</span><% } %>
+            </td>
+            <td><span class="pill pill-<%= r.status === 'open' ? 'pending' : r.status %>"><%= r.status %></span></td>
+            <td class="d-none d-xl-table-cell text-nowrap"><%= formatDate(r.createdAt) %></td>
+            <td class="col-actions no-print">
+              <a href="/admin/reports/<%= r.id %>" class="btn-icon" title="Review report" aria-label="Review report <%= r.id %>"><i class="bi bi-eye"></i></a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer">
+    <%- include('../../partials/pagination', { pagination, baseQuery: pageQuery, noun: 'report' }) %>
+  </div>
+</div>

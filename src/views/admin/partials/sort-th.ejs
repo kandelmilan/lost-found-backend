@@ -1,0 +1,10 @@
+<%
+  // Expects: label, key, list ({ sort, dir }), query (current filters for links), extraClass (optional)
+  const isSorted = list.sort === key;
+  const nextDir = isSorted && list.dir === 'asc' ? 'desc' : 'asc';
+  const href = '?' + new URLSearchParams({ ...query, sort: key, dir: nextDir }).toString();
+  const icon = !isSorted ? 'chevron-expand' : list.dir === 'asc' ? 'caret-up-fill' : 'caret-down-fill';
+%>
+<th class="<%= typeof extraClass !== 'undefined' ? extraClass : '' %>" <%- isSorted ? `aria-sort="${list.dir === 'asc' ? 'ascending' : 'descending'}"` : '' %>>
+  <a href="<%= href %>" class="sort-link <%= isSorted ? 'sorted' : '' %>"><%= label %> <i class="bi bi-<%= icon %>"></i></a>
+</th>

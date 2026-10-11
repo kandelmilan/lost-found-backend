@@ -1,0 +1,86 @@
+<%
+  // Module cards, like the "MODULE · Projects · View projects →" cards of the CRM theme.
+  const modules = [
+    { kicker: 'Module', title: 'Items', icon: 'box-seam', tone: 'primary', meta: `${stats.lost} lost · ${stats.found} found open`, link: 'View items', href: '/admin/items' },
+    { kicker: 'Module', title: 'Inbox', icon: 'inbox', tone: 'success', meta: inboxCount ? `${inboxCount} waiting for an admin` : 'Nothing waiting', link: 'Open inbox', href: '/admin/inbox' },
+    { kicker: 'Module', title: 'Claims', icon: 'patch-check', tone: 'warning', meta: `${stats.pendingClaims} pending · ${stats.inHandover} in handover`, link: 'View claims', href: '/admin/claims' },
+    { kicker: 'Module', title: 'Reports', icon: 'flag', tone: 'danger', meta: `${stats.openReports} open report${stats.openReports === 1 ? '' : 's'}`, link: 'Review reports', href: '/admin/reports' },
+    { kicker: 'Module', title: 'Users', icon: 'people', tone: 'info', meta: `${stats.totalUsers} users · ${stats.blockedUsers} blocked`, link: 'View users', href: '/admin/users' },
+    { kicker: 'Module', title: 'Categories', icon: 'tags', tone: 'dark', meta: `${stats.categories} active`, link: 'Manage categories', href: '/admin/categories' },
+  ];
+  const todo = [
+    { n: stats.pendingClaims, text: 'claims waiting for the poster', href: '/admin/claims?status=pending' },
+    { n: stats.openReports, text: 'reports to review', href: '/admin/reports?status=open' },
+    { n: inboxCount, text: 'items in your inbox', href: '/admin/inbox' },
+  ].filter((t) => t.n > 0);
+%>
+<div class="page-header">
+  <h1 class="page-heading">Dashboard</h1>
+  <a href="/admin/items/new" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Post Item</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <% modules.forEach((m) => { %>
+    <div class="col-12 col-md-6 col-xl-4">
+      <a href="<%= m.href %>" class="module-card card h-100">
+        <div class="card-body">
+          <div class="module-icon tone-<%= m.tone %>"><i class="bi bi-<%= m.icon %>"></i></div>
+          <div class="module-kicker"><%= m.kicker %></div>
+          <div class="module-title"><%= m.title %></div>
+          <div class="module-meta"><%= m.meta %></div>
+          <span class="module-link"><%= m.link %> <i class="bi bi-arrow-right"></i></span>
+        </div>
+      </a>
+    </div>
+  <% }) %>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><h2 class="card-title">Welcome</h2></div>
+  <div class="card-body">
+    <p class="mb-2">Welcome back, <strong><%= admin.name %></strong>! <%= stats.returned %> item<%= stats.returned === 1 ? ' has' : 's have' %> been returned to <%= stats.returned === 1 ? 'its owner' : 'their owners' %> so far.</p>
+    <% if (todo.length) { %>
+      <div class="text-muted mb-2">Needs attention:</div>
+      <div class="d-flex flex-wrap gap-2">
+        <% todo.forEach((t) => { %>
+          <a href="<%= t.href %>" class="todo-chip"><strong><%= t.n %></strong> <%= t.text %> <i class="bi bi-arrow-right"></i></a>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <p class="text-muted mb-0">You're all caught up 🎉</p>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title-row">
+      <h2 class="card-title"><i class="bi bi-clock-history"></i> Recent admin activity</h2>
+      <a href="/admin/logs" class="btn btn-outline-secondary btn-sm">View all</a>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <thead>
+        <tr><th>When</th><th>Admin</th><th>Action</th><th class="d-none d-md-table-cell">IP</th></tr>
+      </thead>
+      <tbody>
+        <% if (!recentLogs.length) { %>
+          <tr><td colspan="4" class="text-center text-muted py-4">No activity yet.</td></tr>
+        <% } %>
+        <% recentLogs.forEach((log) => { %>
+          <% const link = targetLink(log); %>
+          <tr>
+            <td class="text-nowrap"><%= formatDate(log.createdAt) %></td>
+            <td><%= log.admin ? log.admin.name : 'Deleted admin' %></td>
+            <td>
+              <%= actionLabel(log.action) %>
+              <% if (link) { %><a href="<%= link %>" class="ms-1 small">#<%= log.target_id %></a><% } %>
+            </td>
+            <td class="d-none d-md-table-cell small text-muted"><%= log.ip || '' %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>

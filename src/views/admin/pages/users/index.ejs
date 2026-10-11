@@ -1,0 +1,69 @@
+<%
+  const filterFields = [
+    { name: 'status', label: 'Status', options: [['active', 'Active'], ['blocked', 'Blocked']], current: filters.status },
+  ];
+  const th = (label, key, extraClass) => include('../../partials/sort-th', { label, key, list, query, extraClass });
+%>
+<div class="page-header">
+  <h1 class="page-heading">Users</h1>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div class="card-title-row">
+      <h2 class="card-title"><i class="bi bi-people"></i> App users</h2>
+    </div>
+  </div>
+
+  <%- include('../../partials/table-toolbar', {
+    action: '/admin/users',
+    placeholder: 'Search name, email, phone or ID...',
+    list,
+    exportUrl,
+    filterFields,
+    activeFilters: Object.keys(filters).length,
+  }) %>
+
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <thead>
+        <tr>
+          <%- th('Code', 'id', 'd-none d-sm-table-cell') %>
+          <%- th('Name', 'name') %>
+          <th class="d-none d-md-table-cell">Contact</th>
+          <%- th('Status', 'status') %>
+          <%- th('Returned', 'returned', 'd-none d-xl-table-cell text-end') %>
+          <%- th('Joined', 'joined', 'd-none d-xl-table-cell') %>
+          <%- th('Last login', 'last_login', 'd-none d-xl-table-cell') %>
+          <th class="col-actions no-print">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!users.length) { %>
+          <tr><td colspan="8" class="text-center text-muted py-5">No users found.</td></tr>
+        <% } %>
+        <% users.forEach((u) => { %>
+          <tr>
+            <td class="code-cell d-none d-sm-table-cell">U-<%= String(u.id).padStart(3, '0') %></td>
+            <td class="fw-semibold text-nowrap"><%= u.name %></td>
+            <td class="d-none d-md-table-cell small">
+              <% if (u.email) { %><div class="text-nowrap"><i class="bi bi-envelope text-muted"></i> <%= u.email %></div><% } %>
+              <% if (u.phone) { %><div class="text-nowrap"><i class="bi bi-telephone text-muted"></i> <%= u.phone %></div><% } %>
+            </td>
+            <td><span class="pill <%= u.is_blocked ? 'pill-blocked' : 'pill-active' %>"><%= u.is_blocked ? 'Blocked' : 'Active' %></span></td>
+            <td class="d-none d-xl-table-cell text-end"><%= u.returned_count %></td>
+            <td class="d-none d-xl-table-cell text-nowrap"><%= formatDate(u.createdAt) %></td>
+            <td class="d-none d-xl-table-cell text-nowrap"><%= formatDate(u.last_login_at) %></td>
+            <td class="col-actions no-print">
+              <a href="/admin/users/<%= u.id %>" class="btn-icon" title="View user" aria-label="View <%= u.name %>"><i class="bi bi-eye"></i></a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer">
+    <%- include('../../partials/pagination', { pagination, baseQuery: pageQuery, noun: 'user' }) %>
+  </div>
+</div>
